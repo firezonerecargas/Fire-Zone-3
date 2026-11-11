@@ -1,0 +1,113 @@
+<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Fire Zone Recargas</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0/dist/umd/supabase.min.js"></script>
+<style>
+:root{--bg:#0b0b12;--card:#161622;--or:#ff6a00;--tx:#f2f2f7;--mu:#8b8b9e;--ok:#22c55e;--no:#ef4444}
+*{box-sizing:border-box;margin:0}body{background:var(--bg);color:var(--tx);font:15px system-ui,sans-serif;padding-bottom:72px}
+#app{max-width:560px;margin:auto;padding:14px}
+.card{background:var(--card);border-radius:14px;padding:16px;margin-bottom:12px;border:1px solid #26263a}
+h2,h3{margin-bottom:8px}p,small{color:var(--mu)}p{margin:6px 0}
+input,select,textarea{width:100%;padding:11px;margin:6px 0;border-radius:10px;border:1px solid #2c2c44;background:#0e0e18;color:var(--tx);font:inherit}
+.btn,.ghost{display:block;width:100%;padding:12px;margin:6px 0;border:0;border-radius:10px;font:600 15px system-ui;cursor:pointer;text-align:center;text-decoration:none}
+.btn{background:linear-gradient(90deg,#ff6a00,#ff3d00);color:#fff}.ghost{background:#222236;color:var(--tx)}
+.sm{display:inline-block;width:auto;padding:7px 12px;margin:3px;font-size:13px}
+.ok{color:var(--ok)}.no{color:var(--no)}.pe{color:var(--or)}
+.hero{text-align:center;padding:34px 16px;background:radial-gradient(circle at 50% 0,#ff6a0044,transparent 70%),var(--card)}
+.hero h1{font-size:28px;color:var(--or)}
+.offer{display:flex;justify-content:space-between;align-items:center;cursor:pointer}.offer b{font-size:18px}
+#nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:#10101a;border-top:1px solid #26263a}
+#nav button{flex:1;background:0;border:0;color:var(--mu);padding:10px 2px;font-size:20px}#nav small{display:block;font-size:11px}#nav .on{color:var(--or)}
+.md,.ov{position:fixed;inset:0;display:none;z-index:9;overflow:auto}.md{background:#000b;padding:20px;align-items:center}.md.show{display:flex}.md .card{width:100%;max-width:420px;margin:auto}
+.ov{background:#07070d;text-align:center;padding:30px 20px;flex-direction:column;align-items:center;justify-content:center}.ov.show{display:flex}
+.ov[data-s=pending]{color:var(--or)}.ov[data-s=accepted]{color:var(--ok)}.ov[data-s=rejected]{color:var(--no)}
+.ov p{color:var(--tx)}.circ{width:100%;max-width:340px;filter:drop-shadow(0 0 8px currentColor)}
+.flow{stroke-dasharray:8 6;animation:dash 1s linear infinite}.ov:not([data-s=pending]) .flow{animation:none;stroke-dasharray:none}
+@keyframes dash{to{stroke-dashoffset:-28}}.pulse{animation:pl .9s infinite alternate}@keyframes pl{to{opacity:.2}}
+#st span{font-size:34px;cursor:pointer}img.pf{max-width:100%;border-radius:8px;margin-top:6px}
+</style></head><body><div id="app"></div><div id="nav"></div><div id="md" class="md"></div><div id="ov" class="ov"></div>
+<script>
+/* ===== CONFIGURA AQUÍ ===== */
+const SUPA_URL='https://xrvpfctyflgydujygzhv.supabase.co',SUPA_KEY='sb_publishable_xvWQrNMx8QgBDCefU7DO2Q_eVJw3K2D';
+const CFG={wa:'53975065',movil:'53975065',tarjeta:'9234 0699 9423 3942',confirma:'54801767',rate:2.5,minSaldo:50,minTransf:125};
+/* ========================== */
+const OFFERS=[[110,980],[341,2940],[572,4900],[1166,9800],[2398,19600]];
+const sb=supabase.createClient(SUPA_URL,SUPA_KEY);
+const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const ST={pending:'<b class=pe>En proceso</b>',accepted:'<b class=ok>Aceptado</b>',rejected:'<b class=no>Rechazado</b>'};
+let me,tab='home',poll,R=0,at='cli';
+const modal=h=>{$('#md').innerHTML='<div class=card>'+h+'</div>';$('#md').classList.add('show')},closeM=()=>$('#md').classList.remove('show');
+const mini=()=>{clearInterval(poll);$('#ov').classList.remove('show');go('ord')};
+
+/* ---- Auth ---- */
+function vAuth(reg){$('#nav').innerHTML='';$('#app').innerHTML=`<div class="card hero"><h1>🔥 Fire Zone</h1><p>Recargas de Free Fire</p></div><div class=card>${reg?'<input id=n placeholder="Nombre"><input id=ph placeholder="Número" inputmode=tel>':''}<input id=e type=email placeholder="Correo"><input id=p type=password placeholder="Contraseña"><button class=btn onclick="${reg?'reg()':'login()'}">${reg?'Crear cuenta':'Iniciar sesión'}</button><button class=ghost onclick="vAuth(${!reg})">${reg?'Ya tengo cuenta':'Crear cuenta nueva'}</button></div>`}
+async function reg(){const{data,error}=await sb.auth.signUp({email:$('#e').value.trim(),password:$('#p').value,options:{data:{name:$('#n').value.trim(),phone:$('#ph').value.trim()}}});if(error)return alert(error.message);data.session?start():(alert('Cuenta creada. Confirma tu correo e inicia sesión.'),vAuth(false))}
+async function login(){const{error}=await sb.auth.signInWithPassword({email:$('#e').value.trim(),password:$('#p').value});if(error)return alert(error.message);start()}
+async function loadMe(){const{data:{user}}=await sb.auth.getUser();const{data}=await sb.from('profiles').select('*').eq('id',user.id).single();me=data}
+async function start(){const{data:{session}}=await sb.auth.getSession();if(!session)return vAuth(false);await loadMe();if(!me||me.banned){await sb.auth.signOut();alert('Cuenta no disponible');return vAuth(false)}go('home')}
+const out=async()=>{await sb.auth.signOut();vAuth(false)};
+
+/* ---- Navegación ---- */
+function nav(){const t=[['home','🏠','Principal'],['ff','💎','Free Fire'],['ord','📦','Pedidos'],['wal','👛','Wallet']];if(me.is_admin)t.push(['adm','🛠','Admin']);$('#nav').innerHTML=t.map(([k,i,n])=>`<button class="${tab==k?'on':''}" onclick="go('${k}')">${i}<small>${n}</small></button>`).join('')}
+function go(k){tab=k;nav();({home:vHome,ff:vFF,ord:vOrd,wal:vWal,adm:vAdm})[k]()}
+const vHome=()=>$('#app').innerHTML=`<div class="card hero"><h1>🔥 Bienvenido a Fire Zone Recargas</h1><p>Hola ${esc(me.name)}, recarga tus diamantes de Free Fire rápido, fácil y seguro.</p><button class=btn onclick="go('ff')">💎 Recargar ahora</button></div><div class=card><h3>¿Cómo funciona?</h3><p>1. Deposita CUP en tu Wallet.<br>2. Elige tu oferta e ingresa tu ID.<br>3. Recibe tus diamantes.</p></div>`;
+
+/* ---- Free Fire ---- */
+async function vFF(){$('#app').innerHTML=`<h2>💎 Free Fire</h2>${OFFERS.map(([d,p],i)=>`<div class="card offer" onclick="pick(${i})"><b>${d} 💎</b><span class=pe>${p} CUP</span></div>`).join('')}<h3>⭐ Referencias</h3><div id=rv></div><a class=btn target=_blank href="https://wa.me/${CFG.wa}">💬 Soporte por WhatsApp</a>`;
+ const{data}=await sb.from('reviews').select('*').order('created_at',{ascending:false}).limit(15);$('#rv').innerHTML=(data||[]).map(r=>`<div class=card><b>${esc(r.name)}</b> <span class=pe>${'★'.repeat(r.rating)}${'☆'.repeat(5-r.rating)}</span><p>${esc(r.comment)}</p></div>`).join('')||'<p>Aún no hay referencias.</p>'}
+const pick=i=>{const[d,p]=OFFERS[i];modal(`<h3>${d} 💎</h3><p>${p} CUP</p><input id=ffid placeholder="ID de Free Fire" inputmode=numeric><button class=btn onclick="cont(${i})">Continuar</button><button class=ghost onclick=closeM()>Cancelar</button>`)};
+function cont(i){const id=$('#ffid').value.trim(),[d,p]=OFFERS[i];if(!/^\d{6,12}$/.test(id))return alert('ID inválido');
+ if(me.balance<p)return modal(`<h3 class=no>❌ No tienes CUP</h3><p>Necesitas ${p} CUP y tienes ${me.balance} CUP.</p><button class=btn onclick="closeM();go('wal')">Depositar</button><button class=ghost onclick=closeM()>Cerrar</button>`);
+ modal(`<h3>¿Quieres realizar el pedido?</h3><p>Juego: Free Fire<br>ID: <b>${id}</b><br>Diamantes: <b>${d}</b><br>Precio: <b>${p} CUP</b></p><button class=btn onclick="buy('${id}',${d})">Sí, realizar pedido</button><button class=ghost onclick=closeM()>Cancelar</button>`)}
+async function buy(id,d){const{data,error}=await sb.rpc('place_order',{p_ff:id,p_d:d});if(error)return alert(error.message);closeM();await loadMe();track(data)}
+
+/* ---- Seguimiento pantalla completa ---- */
+const CIRCUIT=`<svg viewBox="0 0 300 120"><g fill=none stroke=currentColor stroke-width=2><path class=flow d="M10 60H70L90 30H150L170 90H230L250 60H290"/><path class=flow style="animation-delay:.5s" d="M10 100H60L80 80H140M160 20H220L240 40H290"/><path class=flow style="animation-delay:.9s" d="M10 20H50L70 40H110"/></g><g fill=currentColor><circle class=pulse cx=70 cy=60 r=5 /><circle class=pulse cx=150 cy=30 r=5 /><circle class=pulse cx=230 cy=90 r=5 /><circle class=pulse cx=290 cy=60 r=5 /><circle class=pulse cx=140 cy=80 r=4 /><circle class=pulse cx=220 cy=20 r=4 /></g></svg>`;
+async function track(id){clearInterval(poll);const ov=$('#ov');ov.classList.add('show');
+ const draw=async()=>{const{data:o}=await sb.from('orders').select('*').eq('id',id).single(),s=o.status;ov.dataset.s=s;
+ ov.innerHTML=`<div class=circ>${CIRCUIT}</div><h2>${s=='pending'?'⏳ En proceso…':s=='accepted'?'✅ Aceptado':'❌ Rechazado'}</h2><p>Pedido #${o.id}<br>Juego: Free Fire · ID: ${esc(o.ff_id)}<br>${o.diamonds} 💎 · ${o.price} CUP</p>${s=='accepted'?(o.rating?'<p>¡Gracias por tu referencia!</p>':`<div id=st>${[1,2,3,4,5].map(n=>`<span onclick="stars(${n})">☆</span>`).join('')}</div><input id=cm placeholder="Tu referencia"><button class=btn onclick="rate(${o.id})">Enviar referencia</button>`):s=='rejected'?'<p>Tus CUP fueron devueltos.</p>':''}<button class=ghost style="max-width:340px" onclick="mini()">Minimizar</button>`;
+ if(s!='pending'){clearInterval(poll);loadMe()}};
+ await draw();poll=setInterval(draw,4000)}
+function stars(n){R=n;document.querySelectorAll('#st span').forEach((e,i)=>e.textContent=i<n?'★':'☆')}
+async function rate(id){if(!R)return alert('Elige las estrellas');const{error}=await sb.rpc('rate_order',{p_id:id,p_stars:R,p_comment:$('#cm').value});if(error)return alert(error.message);R=0;track(id)}
+
+/* ---- Pedidos ---- */
+async function vOrd(){const{data}=await sb.from('orders').select('*').eq('user_id',me.id).order('id',{ascending:false});
+ $('#app').innerHTML='<h2>📦 Mis pedidos</h2>'+((data||[]).map(o=>`<div class=card onclick="track(${o.id})"><b>#${o.id} · ${o.diamonds} 💎</b> ${ST[o.status]}<p>ID ${esc(o.ff_id)} · ${o.price} CUP<br>${new Date(o.created_at).toLocaleString()}</p></div>`).join('')||'<p>Sin pedidos.</p>')}
+
+/* ---- Wallet ---- */
+async function vWal(){await loadMe();const{data}=await sb.from('deposits').select('*').eq('user_id',me.id).order('id',{ascending:false});
+ $('#app').innerHTML=`<div class=card><h3>${esc(me.name)}</h3><p>${esc(me.email)}</p></div><div class="card hero"><p>Tu billetera</p><h1>${me.balance} CUP</h1><button class=btn onclick=dep()>Depositar</button></div><h3>Depósitos</h3>${(data||[]).map(d=>`<div class=card><b>${d.amount} CUP</b> ${ST[d.status]}<p>${esc(d.method)} · ${new Date(d.created_at).toLocaleString()}</p></div>`).join('')||'<p>Sin depósitos.</p>'}<button class=ghost onclick=out()>Cerrar sesión</button>`}
+const dep=()=>modal(`<h3>Depositar</h3><button class=btn onclick="depF('m')">📱 Saldo Móvil</button><button class=btn onclick="depF('t')">🏦 Transferencia Bancaria Bandec</button><button class=ghost onclick=closeM()>Cerrar</button>`);
+const depF=m=>modal(`<h3>${m=='m'?'Saldo Móvil':'Transferencia Bandec'}</h3><p>Mínimo: ${m=='m'?CFG.minSaldo+' de saldo (1 saldo = '+CFG.rate+' CUP)':CFG.minTransf+' CUP'}</p><input id=am type=number placeholder="${m=='m'?'Saldo a enviar':'Monto en CUP'}" oninput="$('#cu').textContent=${m=='m'}?'Recibirás '+(this.value*CFG.rate)+' CUP':''"><p id=cu class=pe></p><button class=btn onclick="depP('${m}')">Hacer el pago</button><button class=ghost onclick=closeM()>Cancelar</button>`);
+function depP(m){const a=+$('#am').value,mv=m=='m';if(a<(mv?CFG.minSaldo:CFG.minTransf))return alert('Monto menor al mínimo');const cup=mv?a*CFG.rate:a;
+ const cp=t=>`<button class="ghost sm" onclick="navigator.clipboard.writeText('${t.replace(/\s/g,'')}');this.textContent='✔ Copiado'">Copiar</button>`;
+ modal(`<h3>Realiza tu pago</h3>${mv?`<p>Número a enviar:</p><h3>${CFG.movil} ${cp(CFG.movil)}</h3><p>Monto: <b>${a} de saldo</b> (${cup} CUP)</p>`:`<p>Número de tarjeta:</p><h3>${CFG.tarjeta} ${cp(CFG.tarjeta)}</h3><p>Móvil a confirmar: <b>${CFG.confirma}</b></p><p>Monto: <b>${a} CUP</b></p>`}<p>Sube la captura del pago:</p><input id=fl type=file accept="image/*"><button class=btn onclick="depS('${m}',${a},${cup})">Realizar el pago</button><button class=ghost onclick=closeM()>Cancelar</button>`)}
+const img=f=>new Promise(r=>{const i=new Image;i.onload=()=>{const c=document.createElement('canvas'),k=Math.min(1,800/i.width);c.width=i.width*k;c.height=i.height*k;c.getContext('2d').drawImage(i,0,0,c.width,c.height);r(c.toDataURL('image/jpeg',.6))};i.src=URL.createObjectURL(f)});
+async function depS(m,a,cup){const f=$('#fl').files[0];if(!f)return alert('Sube la captura');const{error}=await sb.from('deposits').insert({user_id:me.id,method:m=='m'?'Saldo Móvil':'Bandec',amount:cup,detail:m=='m'?a+' de saldo':a+' CUP',proof:await img(f)});if(error)return alert(error.message);modal(`<h3 class=pe>⏳ En proceso</h3><p>Tu depósito de ${cup} CUP será revisado. Se acreditará al ser aceptado.</p><button class=btn onclick="closeM();vWal()">OK</button>`)}
+
+/* ---- Admin ---- */
+const adm=k=>{at=k;vAdm()};
+async function vAdm(){const tb=[['cli','Clientes'],['ped','Pedidos'],['dep','Depósitos'],['api','API']];let h=`<h2>🛠 Admin</h2><div>${tb.map(([k,n])=>`<button class="${at==k?'btn':'ghost'} sm" onclick="adm('${k}')">${n}</button>`).join('')}</div>`;$('#app').innerHTML=h;
+ $('#app').insertAdjacentHTML('beforeend',await({cli:aCli,ped:aPed,dep:aDep,api:aApi})[at]())}
+async function aCli(){const{data}=await sb.from('profiles').select('*').order('created_at',{ascending:false});
+ return`<div class=card><h3>Enviar / quitar CUP</h3><input id=ce type=email placeholder="Correo del cliente"><input id=cm2 type=number placeholder="Monto (negativo para quitar)"><button class=btn onclick=adj()>Aplicar</button></div>`+data.map(c=>`<div class=card><b>${esc(c.name)}</b> ${c.is_admin?'🛡':''}${c.banned?'🚫':''}<p>${esc(c.email)} · ${esc(c.phone)}<br>${c.balance} CUP</p><button class="ghost sm" onclick="tog('${c.id}','is_admin',${!c.is_admin})">${c.is_admin?'Quitar admin':'Poner admin'}</button><button class="ghost sm" onclick="tog('${c.id}','banned',${!c.banned})">${c.banned?'Desbanear':'Banear'}</button></div>`).join('')}
+async function tog(id,f,v){const{error}=await sb.from('profiles').update({[f]:v}).eq('id',id);error&&alert(error.message);vAdm()}
+async function adj(){const{error}=await sb.rpc('adjust_balance',{p_email:$('#ce').value.trim(),p_amount:+$('#cm2').value});error?alert(error.message):alert('Listo');vAdm()}
+async function aPed(){const[{data},{data:ap}]=await Promise.all([sb.from('orders').select('*,profiles(name,email)').order('id',{ascending:false}).limit(60),sb.from('apis').select('id,name')]);
+ const op=(ap||[]).map(a=>`<option value=${a.id}>${esc(a.name)}</option>`).join('');
+ return data.map(o=>`<div class=card><b>#${o.id} · ${o.diamonds} 💎 · ${o.price} CUP</b> ${ST[o.status]}<p>ID Free Fire: <b>${esc(o.ff_id)}</b><br>${esc(o.profiles?.name)} · ${esc(o.profiles?.email)}</p>${o.status=='pending'?`<button class="btn sm" onclick="so(${o.id},'accepted')">Aceptar</button><button class="ghost sm" onclick="so(${o.id},'rejected')">Rechazar</button>`:''}${op?`<select id=s${o.id}>${op}</select><button class="ghost sm" onclick="sendApi(${o.id},$('#s${o.id}').value)">📡 Enviar a API</button>`:''}</div>`).join('')}
+async function so(id,s){const{error}=await sb.rpc('set_order',{p_id:id,p_status:s});error&&alert(error.message);vAdm()}
+async function aDep(){const{data}=await sb.from('deposits').select('*,profiles(name,email)').order('id',{ascending:false}).limit(40);
+ return data.map(d=>`<div class=card><b>${d.amount} CUP</b> ${ST[d.status]}<p>${esc(d.method)} (${esc(d.detail)})<br>${esc(d.profiles?.name)} · ${esc(d.profiles?.email)}</p><img class=pf src="${d.proof}">${d.status=='pending'?`<button class="btn sm" onclick="sd(${d.id},'accepted')">Aceptar</button><button class="ghost sm" onclick="sd(${d.id},'rejected')">Rechazar</button>`:''}</div>`).join('')}
+async function sd(id,s){const{error}=await sb.rpc('set_deposit',{p_id:id,p_status:s});error&&alert(error.message);vAdm()}
+
+/* ---- API universal ---- */
+async function aApi(){const{data}=await sb.from('apis').select('*').order('id');
+ return`<div class=card><h3>Vincular API de proveedor</h3><p>Usa {{ff_id}} {{diamonds}} {{order_id}} {{price}} {{api_key}} en URL, headers o body.</p><input id=an placeholder="Nombre del proveedor"><input id=au placeholder="URL (https://api.proveedor.com/order?key={{api_key}})"><select id=am2><option>POST</option><option>GET</option><option>PUT</option><option>PATCH</option></select><textarea id=ah rows=3 placeholder='Headers JSON: {"Content-Type":"application/json"}'>{"Content-Type":"application/json"}</textarea><textarea id=ab rows=4 placeholder='Body: {"player":"{{ff_id}}","package":"{{diamonds}}"}'></textarea><input id=ak placeholder="API key"><input id=ah2 placeholder="Header de la key (ej: Authorization o X-API-KEY) — opcional"><button class=btn onclick=saveApi()>Guardar API</button></div>`+data.map(a=>`<div class=card><b>${esc(a.name)}</b><p>${esc(a.method)} ${esc(a.url)}</p><button class="ghost sm" onclick="delApi(${a.id})">Eliminar</button></div>`).join('')}
+async function saveApi(){const{error}=await sb.from('apis').insert({name:$('#an').value,url:$('#au').value,method:$('#am2').value,headers:$('#ah').value,body:$('#ab').value,api_key:$('#ak').value,key_header:$('#ah2').value||null});error&&alert(error.message);vAdm()}
+async function delApi(id){if(confirm('¿Eliminar?')){await sb.from('apis').delete().eq('id',id);vAdm()}}
+const fill=(s,o,a)=>String(s||'').replace(/{{(\w+)}}/g,(_,k)=>({ff_id:o.ff_id,diamonds:o.diamonds,order_id:o.id,price:o.price,api_key:a.api_key})[k]??'');
+async function sendApi(oid,aid){const[{data:o},{data:a}]=await Promise.all([sb.from('orders').select('*').eq('id',oid).single(),sb.from('apis').select('*').eq('id',aid).single()]);let h={};try{h=JSON.parse(fill(a.headers,o,a)||'{}')}catch{return alert('Headers: JSON inválido')}
+ if(a.key_header)h[a.key_header]=a.api_key;const m=a.method||'POST';try{const r=await fetch(fill(a.url,o,a),{method:m,headers:h,body:m=='GET'?undefined:fill(a.body,o,a)});alert('Respuesta '+r.status+'\n'+(await r.text()).slice(0,500))}catch(e){alert('Error: '+e.message)}}
+
+start();
+</script></body></html>
